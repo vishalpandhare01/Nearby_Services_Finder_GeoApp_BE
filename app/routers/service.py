@@ -104,6 +104,38 @@ def delete_service(service_id: str, db: Session = Depends(get_db), current_admin
     db.commit()
     return {"message": "Service deleted"}
 
+@router.get("/my-services", response_model=List[ServiceResponse])
+def get_my_services(
+    db: Session = Depends(get_db),
+    current_admin = Depends(get_current_admin)
+):
+    services = (
+        db.query(Service)
+        .filter(Service.created_by == current_admin.id)
+        .all()
+    )
+
+    response = []
+
+    for svc in services:
+        geom = to_shape(svc.location)
+
+        response.append(
+            ServiceResponse(
+                id=svc.id,
+                name=svc.name,
+                category=svc.category,
+                latitude=geom.y,
+                longitude=geom.x,
+                rating=svc.rating,
+                created_at=svc.created_at,
+                distance=0  # optional if required in schema
+            )
+        )
+
+    return response
+
+
 @router.get("/", response_model=List[ServiceResponse])
 def list_services(
     latitude: float = Query(...),
