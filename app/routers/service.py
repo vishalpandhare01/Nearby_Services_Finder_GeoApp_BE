@@ -14,21 +14,6 @@ from geoalchemy2.shape import to_shape
 from geoalchemy2.functions import ST_DWithin, ST_Distance
 router = APIRouter()
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """
-    Calculate the great circle distance between two points
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-
-    # haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    r = 6371  # Radius of earth in kilometers. Use 3956 for miles
-    return c * r
 
 @router.post("/", response_model=ServiceResponse)
 def create_service(service: ServiceCreate, db: Session = Depends(get_db), current_admin = Depends(get_current_admin)):
@@ -36,7 +21,7 @@ def create_service(service: ServiceCreate, db: Session = Depends(get_db), curren
     point = WKTElement(f'POINT({service.longitude} {service.latitude})', srid=4326)
     db_service = Service(
         name=service.name,
-        category=service.category,
+        category=service.category.lower(),
         location=point,
         rating=service.rating,
         created_by=current_admin.id
@@ -135,7 +120,6 @@ def get_my_services(
 
     return response
 
-
 @router.get("/", response_model=List[ServiceResponse])
 def list_services(
     latitude: float = Query(...),
@@ -146,30 +130,32 @@ def list_services(
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
-    user_point = WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+    user_point = func.ST_SetSRID(
+    func.ST_MakePoint(longitude, latitude),
+    4326
+)
 
     query = db.query(
         Service,
-        ST_Distance(Service.location, user_point).label("distance")
+        ST_Distance(
+            func.Geography(Service.location),
+            func.Geography(user_point)
+        ).label("distance")
     )
 
-    # category filter
     if category:
-        query = query.filter(Service.category == category)
+        query = query.filter(func.lower(Service.category) == category.lower())
 
-    # radius filter (IMPORTANT: DB-level)
     query = query.filter(
         ST_DWithin(
-            Service.location,
-            user_point,
-            radius * 1000  # km → meters
+            func.Geography(Service.location),
+            func.Geography(user_point),
+            radius * 1000
         )
     )
 
-    # sort by nearest
     query = query.order_by("distance")
 
-    # pagination
     query = query.offset((page - 1) * limit).limit(limit)
 
     results = query.all()

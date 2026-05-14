@@ -55,19 +55,23 @@ source .venv/bin/activate  # macOS/Linux
 ```bash
 pip install -r requirements.txt
 ```
-NOTE: run command in postgresql "CREATE EXTENSION postgis;"
 
 
 ### 3. Configure Environment Variables
 Edit `.env` file:
 ```env
-DATABASE_URL=sqlite:///./test.db
+DATABASE_URL=postgresqlurl
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
+### 4. create tables
+```bash
+python -m init_table
+NOTE: run command in postgresql cli "CREATE EXTENSION postgis;"
+```
 
-### 4. Run the Server
+### 5. Run the Server
 ```bash
 python -m uvicorn app.main:app --reload
 ```
