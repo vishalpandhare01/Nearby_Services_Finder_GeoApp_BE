@@ -44,11 +44,12 @@ def create_service(service: ServiceCreate, db: Session = Depends(get_db), curren
 @router.put("/{service_id}", response_model=ServiceResponse)
 def update_service(service_id: str, service: ServiceUpdate, db: Session = Depends(get_db), current_admin = Depends(get_current_admin)):
     db_service = db.query(Service).filter(Service.id == service_id).first()
+    if not db_service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
     if db_service.created_by != current_admin.id:
         raise HTTPException(status_code=403, detail="Not enough permissions to update this service")
     
-    if not db_service:
-        raise HTTPException(status_code=404, detail="Service not found")
     
     
     update_data = service.dict(exclude_unset=True)
@@ -80,11 +81,12 @@ def update_service(service_id: str, service: ServiceUpdate, db: Session = Depend
 def delete_service(service_id: str, db: Session = Depends(get_db), current_admin = Depends(get_current_admin)):
     db_service = db.query(Service).filter(Service.id == service_id).first()
 
+    if not db_service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
     if db_service.created_by != current_admin.id:
         raise HTTPException(status_code=403, detail="Not enough permissions to update this service")
 
-    if not db_service:
-        raise HTTPException(status_code=404, detail="Service not found")
     db.delete(db_service)
     db.commit()
     return {"message": "Service deleted"}
