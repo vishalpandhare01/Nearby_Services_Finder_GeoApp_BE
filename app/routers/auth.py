@@ -35,5 +35,14 @@ def login(response: Response, user: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Only admins can login")
     
     access_token = create_access_token(data={"sub": db_user.email, "role": db_user.role}, expires_delta=timedelta(minutes=settings.access_token_expire_minutes))
-    response.set_cookie(key="access_token", value=access_token, httponly=True)
+    response.set_cookie(
+        key="access_token", 
+        value=access_token,
+        httponly=True ,
+        samesite="none",
+        secure=True,  # use True in production with HTTPS
+        max_age=60 * 60,  # 1 hour
+        expires=60 * 60,
+        
+        )
     return {"message": "Login successful"}
